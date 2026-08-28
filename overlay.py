@@ -21,8 +21,8 @@ def load_user_config():
     defaults = {
         "audio": {
             "reactive_audio": True,
-            "noise_gate": 0.22,
-            "mic_sensitivity": 2.8,
+            "noise_gate": 0.18,
+            "mic_sensitivity": 3.0,
         },
         "ui": {
             "font_family": "Google Sans Flex",
@@ -258,8 +258,8 @@ class WhisperOverlay:
         self.anim_timer = GLib.timeout_add(25, self.refresh_animation)
         self.mic_thread_running = False
 
-        self.base_noise_gate = float(self.cfg["audio"].get("noise_gate", 0.22))
-        self.sensitivity = float(self.cfg["audio"].get("mic_sensitivity", 2.8))
+        self.base_noise_gate = float(self.cfg["audio"].get("noise_gate", 0.18))
+        self.sensitivity = float(self.cfg["audio"].get("mic_sensitivity", 3.0))
         self.adaptive_floor = self.base_noise_gate
 
         if self.cfg["audio"].get("reactive_audio", True):

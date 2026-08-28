@@ -11,8 +11,8 @@ play_sounds = true
 sound_start = "/usr/share/sounds/freedesktop/stereo/message-new-instant.oga"
 sound_done = "/usr/share/sounds/freedesktop/stereo/complete.oga"
 reactive_audio = true    # Set true to react dynamically to microphone loudness in real-time
-noise_gate = 0.22        # Background ambient noise floor threshold (ignore ambient sound below this)
-mic_sensitivity = 2.8    # Voice loudness boost factor (adjust if bars are too calm or too high)
+noise_gate = 0.18        # Background ambient noise floor threshold (ignore ambient sound below this)
+mic_sensitivity = 3.0    # Voice loudness boost factor (adjust if bars are too calm or too high)
 
 [formatting]
 smart_punctuation = true # Converts spoken commands ("new line", "period", "comma", etc.)
