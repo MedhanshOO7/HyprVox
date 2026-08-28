@@ -27,10 +27,9 @@ def hex_to_rgba_css(hex_str, alpha=1.0):
     if len(hex_str) == 6:
         r, g, b = (int(hex_str[i:i+2], 16) for i in (0, 2, 4))
         return f"rgba({r}, {g}, {b}, {alpha})"
-    return f"rgba(20, 22, 30, {alpha})"
+    return f"rgba(18, 19, 24, {alpha})"
 
 def load_quickshell_theme():
-    # Defaults matching standard dark Material You
     theme = {
         "bg": "#121318",
         "surface": "#1e1f25",
@@ -59,45 +58,45 @@ def load_quickshell_theme():
 
 theme = load_quickshell_theme()
 
-# Generate dynamic CSS matching Quickshell top bar transparency & colors
+# Translucent CSS with true alpha matching top bar (0.65 background, 0.40 border)
 CSS = f"""
 window {{
+    background-color: transparent;
     background: transparent;
 }}
 
 #pill {{
-    background-color: {hex_to_rgba_css(theme["bg"], 0.78)};
-    border: 1px solid {hex_to_rgba_css(theme["outline_variant"], 0.45)};
+    background-color: {hex_to_rgba_css(theme["bg"], 0.65)};
+    border: 1px solid {hex_to_rgba_css(theme["outline_variant"], 0.40)};
     border-radius: 28px;
-    padding: 12px 26px;
-    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+    padding: 10px 24px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
 }}
 
 #title {{
     font-family: 'Google Sans Flex', 'Inter', 'Segoe UI', sans-serif;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: {theme["on_surface"]};
 }}
 
 #subtitle {{
     font-family: 'Google Sans Flex', 'Inter', 'Segoe UI', sans-serif;
-    font-size: 12px;
+    font-size: 11px;
     color: {theme["on_surface_variant"]};
-    margin-top: 2px;
+    margin-top: 1px;
 }}
 """.encode('utf-8')
 
 class VoiceVisualizer(Gtk.DrawingArea):
     def __init__(self, theme_data):
         super().__init__()
-        self.set_size_request(38, 28)
+        self.set_size_request(34, 24)
         self.connect("draw", self.on_draw)
         self.num_bars = 5
         self.mode = "RECORDING"
         self.start_time = time.time()
         
-        # Derive waveform bar colors from Quickshell Material You palette
         self.bar_colors = [
             hex_to_rgb(theme_data["primary"]),
             hex_to_rgb(theme_data["tertiary"]),
@@ -111,8 +110,8 @@ class VoiceVisualizer(Gtk.DrawingArea):
         height = widget.get_allocated_height()
         t = time.time() - self.start_time
 
-        bar_width = 3.5
-        spacing = 4.0
+        bar_width = 3.0
+        spacing = 3.5
         total_bars_width = (self.num_bars * bar_width) + ((self.num_bars - 1) * spacing)
         start_x = (width - total_bars_width) / 2.0
         center_y = height / 2.0
@@ -121,17 +120,15 @@ class VoiceVisualizer(Gtk.DrawingArea):
             x = start_x + i * (bar_width + spacing)
 
             if self.mode == "RECORDING":
-                # Organic voice frequency simulation
                 freq1 = 4.5 + (i * 0.8)
                 freq2 = 2.2 - (i * 0.3)
                 h_factor = 0.35 + 0.35 * math.sin(t * freq1 + i * 1.2) + 0.25 * math.cos(t * freq2 + i * 0.9)
-                bar_h = max(6.0, h_factor * (height - 6.0))
+                bar_h = max(5.0, h_factor * (height - 4.0))
             elif self.mode == "TRANSCRIBING":
-                # Traveling wave pulse
                 wave = math.sin(t * 8.0 - i * 0.9)
-                bar_h = 6.0 + 8.0 * (0.5 + 0.5 * wave)
+                bar_h = 5.0 + 7.0 * (0.5 + 0.5 * wave)
             else:
-                bar_h = 5.0
+                bar_h = 4.0
 
             r, g, b = self.bar_colors[i % len(self.bar_colors)]
             cr.set_source_rgba(r, g, b, 0.95)
@@ -155,12 +152,22 @@ class WhisperOverlay:
         self.window.set_title("Whisper Dictation")
         self.window.set_app_paintable(True)
 
-        # Init LayerShell
+        # Set RGBA Visual for true Wayland alpha transparency
+        screen = Gdk.Screen.get_default()
+        visual = screen.get_rgba_visual()
+        if visual:
+            self.window.set_visual(visual)
+
+        # Init LayerShell with custom namespace for Hyprland blur
         GtkLayerShell.init_for_window(self.window)
+        GtkLayerShell.set_namespace(self.window, "whisper-overlay")
         GtkLayerShell.set_layer(self.window, GtkLayerShell.Layer.OVERLAY)
         GtkLayerShell.set_keyboard_mode(self.window, GtkLayerShell.KeyboardMode.NONE)
         GtkLayerShell.set_anchor(self.window, GtkLayerShell.Edge.BOTTOM, True)
-        GtkLayerShell.set_margin(self.window, GtkLayerShell.Edge.BOTTOM, 55)
+        GtkLayerShell.set_margin(self.window, GtkLayerShell.Edge.BOTTOM, 50)
+
+        # Connect draw signal to ensure window surface is cleared transparently
+        self.window.connect("draw", self.on_window_draw)
 
         # Apply CSS
         css_provider = Gtk.CssProvider()
@@ -172,12 +179,12 @@ class WhisperOverlay:
         )
 
         # Layout Container
-        self.box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
+        self.box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         self.box.set_name("pill")
 
         self.visualizer = VoiceVisualizer(self.theme)
 
-        text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         
         self.title_label = Gtk.Label()
         self.title_label.set_name("title")
@@ -199,6 +206,13 @@ class WhisperOverlay:
         self.window.connect("destroy", Gtk.main_quit)
 
         self.anim_timer = GLib.timeout_add(25, self.refresh_animation)
+
+    def on_window_draw(self, widget, cr):
+        # Clear window surface to fully transparent
+        cr.set_source_rgba(0, 0, 0, 0)
+        cr.set_operator(cairo.OPERATOR_SOURCE)
+        cr.paint()
+        return False
 
     def refresh_animation(self):
         self.visualizer.queue_draw()
