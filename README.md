@@ -1,22 +1,36 @@
-# Whisper-Dictate (CUDA + Wayland / Hyprland)
+# HyprVox 🎙️
 
-Ultra-fast, native local AI voice dictation with floating Wayland LayerShell overlay, powered by `faster-whisper` running on NVIDIA GPU CUDA (`float16`).
+Ultra-fast, native local AI voice dictation with a dynamic Material You floating overlay for Hyprland and Wayland, powered by `faster-whisper` running on NVIDIA GPU CUDA (`float16`).
 
-## Features
-- **GPU Accelerated**: Faster-Whisper inference on CUDA (NVIDIA RTX 4050) in ~100-150ms.
-- **Wayland Native**: Types directly into active windows with `wtype` and synchronizes to `wl-copy`.
-- **Modern Floating Overlay**: Pill-shaped translucent UI using GTK LayerShell (anchored above active windows without stealing input focus).
-- **PipeWire Audio**: Low-latency 16kHz mono audio recording via `pw-record`.
-- **Toggle Recording**: Press <kbd>Super</kbd> + <kbd>H</kbd> to start speaking, press again to transcribe and type.
+---
 
-## Keybind (Hyprland)
+## ✨ Features
+
+- **⚡ GPU Accelerated**: Local `faster-whisper` inference on NVIDIA CUDA in ~100–150 ms.
+- **🎨 Dynamic Material You Theming**: Floating pill overlay that automatically matches your Quickshell top bar colors, transparency, and fonts.
+- **🌊 Animated Waveform Visualizer**: Smooth Cairo multi-color voice equalizers while listening and transcribing.
+- **🪟 True Wayland LayerShell Overlay**: Anchored above windows without stealing cursor focus (`KeyboardMode.NONE`).
+- **⌨️ Direct Typing & Clipboard Sync**: Injects text into active windows with `wtype` and simultaneously synchronizes to `wl-copy`.
+- **🔊 PipeWire Audio & Sound Cues**: Low-latency audio recording via `pw-record` with subtle non-intrusive chimes.
+
+---
+
+## 🚀 Quick Setup & Keybind
+
+### 1. Hyprland Configuration (`~/.config/hypr/custom/keybinds.lua`)
 ```lua
--- ~/.config/hypr/custom/keybinds.lua
 hl.bind("SUPER + H", hl.dsp.exec_cmd("~/.local/bin/whisper-dictate"), { description = "Voice: Toggle AI voice dictation" })
 ```
 
-## Structure
-- `whisper-dictate` (Launcher script in `~/.local/bin/whisper-dictate`)
-- `transcribe.py` (CUDA transcription worker with VAD silence filtering)
-- `overlay.py` (GTK LayerShell floating visualizer)
-- `venv/` (Python 3.12 virtualenv with faster-whisper, nvidia-cudnn, nvidia-cublas)
+### 2. Usage
+- Press <kbd>Super</kbd> + <kbd>H</kbd> anywhere &rarr; start speaking.
+- Press <kbd>Super</kbd> + <kbd>H</kbd> again &rarr; transcribes and types into the focused application.
+
+---
+
+## 🛠️ Requirements
+
+- **OS**: Arch Linux / Linux with Wayland
+- **Compositor**: Hyprland (or any wlroots/LayerShell compositor)
+- **GPU**: NVIDIA GPU with CUDA support
+- **Packages**: `wtype`, `wl-clipboard`, `pipewire` (`pw-record`, `pw-play`), `libnotify`, `gtk3`, `gtk-layer-shell`, `python-gobject`
