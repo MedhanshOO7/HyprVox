@@ -26,18 +26,99 @@
   - Automatically primes Whisper with technical developer vocabulary (`Hyprland, Wayland, Pacman, Neovim, CachyOS, Python, Rust, zsh...`) to eliminate phonetic misspellings.
   - Spoken punctuation support: say *"new line"*, *"period"*, *"comma"*, *"colon"*, or *"question mark"* and it inserts the proper symbols with smart capitalization.
 - **🎨 Dynamic Material You & Quickshell Theming**: The floating pill automatically synchronizes colors (`primary`, `tertiary`, `surface`, `outline`), background transparency (`0.65`), and typography (`Google Sans Flex` / `Inter`) from your active Quickshell / Matugen desktop palette in real time.
+- **📖 Built-in Dictionary & Vocabulary Manager**:
+  - Click the **✎ Dict** button on the pill (or right-click the pill / run `hyprvox --dict`) to open a modern tag-based vocabulary editor.
+  - Instantly add, remove, and manage custom coding and technical terms without touching configuration files.
 - **🪟 True Wayland LayerShell Overlay**: Uses `gtk-layer-shell` on the `OVERLAY` layer with `KeyboardMode.NONE` — **never steals cursor or keyboard focus from your active text input**.
 - **🌫️ Hyprland Glassmorphism Blur**: Fully supports Hyprland `layerrule` blur for a frosted glass look over active windows.
-- **📖 Built-in Dictionary & Vocabulary Manager**:
-  - Click the **✎** button on the pill (or right-click the pill / run `hyprvox --dict`) to open a modern tag-based vocabulary editor.
-  - Instantly add, remove, and manage custom coding and technical terms without touching configuration files.
 - **⌨️ Direct Typing & Clipboard Sync**: Injects text directly into the focused window with `wtype` and saves a copy to your clipboard with `wl-copy`.
 
 ---
 
-## ⚙️ Configuration (`~/.config/hyprvox/config.toml`)
+## 🚀 Quick 1-Command Installation
 
-Customize your profiles and settings in `~/.config/hyprvox/config.toml`:
+```bash
+git clone https://github.com/MedhanshOO7/HyprVox.git ~/.local/share/whisper-dictate
+cd ~/.local/share/whisper-dictate
+./install.sh
+```
+
+---
+
+## ⚙️ Hyprland Configuration Setup
+
+To ensure seamless integration with your desktop, add the following configuration blocks:
+
+### 1. Keybindings
+
+#### For Lua Configs (`~/.config/hypr/custom/keybinds.lua`):
+```lua
+-- Toggle AI Voice Dictation (Super + H)
+hl.bind("SUPER + H", hl.dsp.exec_cmd("~/.local/bin/hyprvox"), { description = "Voice: Toggle AI voice dictation" })
+
+-- Open Vocabulary & Dictionary Manager (Super + Shift + H)
+hl.bind("SUPER + SHIFT + H", hl.dsp.exec_cmd("~/.local/bin/hyprvox --dict"), { description = "Voice: Edit technical vocabulary" })
+```
+
+#### For Standard `hyprland.conf`:
+```ini
+# Toggle AI Voice Dictation
+bind = SUPER, H, exec, ~/.local/bin/hyprvox
+
+# Open Vocabulary & Dictionary Manager
+bind = SUPER SHIFT, H, exec, ~/.local/bin/hyprvox --dict
+```
+
+---
+
+### 2. Layer & Window Rules
+
+#### For Lua Configs (`~/.config/hypr/custom/rules.lua`):
+```lua
+-- Floating pill overlay blur and slide animation
+hl.layer_rule({
+    match = { namespace = "whisper-overlay" },
+    blur = true,
+    ignore_alpha = 0.1,
+    animation = "slide bottom",
+})
+
+-- Centered floating Dictionary Manager window
+hl.window_rule({
+    match = { class = "^(hyprvox-dictionary)$" },
+    float = true,
+    center = true,
+    size = { "monitor_w*0.42", "monitor_h*0.48" },
+    no_blur = false,
+})
+hl.window_rule({
+    match = { title = "^(HyprVox Dictionary)$" },
+    float = true,
+    center = true,
+    size = { "monitor_w*0.42", "monitor_h*0.48" },
+})
+```
+
+#### For Standard `hyprland.conf`:
+```ini
+# Floating overlay layer rules (blur & glassmorphism)
+layerrule = blur, whisper-overlay
+layerrule = ignorealpha 0.1, whisper-overlay
+layerrule = animation slide bottom, whisper-overlay
+
+# Dictionary Manager window rules (float & center)
+windowrulev2 = float, class:^(hyprvox-dictionary)$
+windowrulev2 = center, class:^(hyprvox-dictionary)$
+windowrulev2 = size 42% 48%, class:^(hyprvox-dictionary)$
+windowrulev2 = float, title:^(HyprVox Dictionary)$
+windowrulev2 = center, title:^(HyprVox Dictionary)$
+```
+
+---
+
+## ⚙️ User Configuration (`~/.config/hyprvox/config.toml`)
+
+Customize your settings and profiles in `~/.config/hyprvox/config.toml`:
 
 ```toml
 [general]
@@ -82,39 +163,6 @@ margin = 50
 
 ---
 
-## 🚀 Quick 1-Command Installation
-
-```bash
-git clone https://github.com/MedhanshOO7/HyprVox.git ~/.local/share/whisper-dictate
-cd ~/.local/share/whisper-dictate
-./install.sh
-```
-
----
-
-## ⌨️ Hyprland Keybind & Blur Rules
-
-### 1. Add Keybind (`~/.config/hypr/custom/keybinds.lua` or `hyprland.conf`)
-
-```lua
--- Voice Dictation Toggle (Super + H)
-hl.bind("SUPER + H", hl.dsp.exec_cmd("~/.local/bin/whisper-dictate"), { description = "Voice: Toggle AI voice dictation" })
-```
-
-### 2. Add Layer Rule for Blur (`~/.config/hypr/custom/rules.lua` or `hyprland.conf`)
-
-```lua
--- Translucent floating pill with background blur
-hl.layer_rule({
-    match = { namespace = "whisper-overlay" },
-    blur = true,
-    ignore_alpha = 0.1,
-    animation = "slide bottom",
-})
-```
-
----
-
 ## 📂 Project Structure
 
 ```
@@ -124,6 +172,7 @@ HyprVox/
 ├── overlay.py            # GTK LayerShell floating visualizer & live audio-reactive waveform
 ├── transcribe.py         # Dynamic profile engine with CUDA faster-whisper & smart formatting
 ├── daemon.py             # Pre-warmed background resident daemon for warm AC mode
+├── dict_editor.py        # Tag-based Vocabulary & Technical Glossary GUI
 ├── config.example.toml   # Default configuration template
 ├── README.md             # Project documentation
 ├── LICENSE               # MIT License
