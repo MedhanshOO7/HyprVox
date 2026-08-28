@@ -28,6 +28,9 @@
 - **🎨 Dynamic Material You & Quickshell Theming**: The floating pill automatically synchronizes colors (`primary`, `tertiary`, `surface`, `outline`), background transparency (`0.65`), and typography (`Google Sans Flex` / `Inter`) from your active Quickshell / Matugen desktop palette in real time.
 - **🪟 True Wayland LayerShell Overlay**: Uses `gtk-layer-shell` on the `OVERLAY` layer with `KeyboardMode.NONE` — **never steals cursor or keyboard focus from your active text input**.
 - **🌫️ Hyprland Glassmorphism Blur**: Fully supports Hyprland `layerrule` blur for a frosted glass look over active windows.
+- **📖 Built-in Dictionary & Vocabulary Manager**:
+  - Click the **✎** button on the pill (or right-click the pill / run `hyprvox --dict`) to open a modern tag-based vocabulary editor.
+  - Instantly add, remove, and manage custom coding and technical terms without touching configuration files.
 - **⌨️ Direct Typing & Clipboard Sync**: Injects text directly into the focused window with `wtype` and saves a copy to your clipboard with `wl-copy`.
 
 ---

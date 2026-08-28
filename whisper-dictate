@@ -16,6 +16,12 @@ if [ ! -x "$PYTHON_BIN" ]; then
     PYTHON_BIN="python3"
 fi
 
+# Quick CLI option to open Dictionary Manager
+if [ "$1" = "--dict" ] || [ "$1" = "-d" ] || [ "$1" = "--edit-dict" ] || [ "$1" = "dict" ]; then
+    "$PYTHON_BIN" "$APP_DIR/dict_editor.py" &
+    exit 0
+fi
+
 # Ensure venv and transcribe script exist
 if [ ! -f "$APP_DIR/transcribe.py" ]; then
     notify-send -a "Voice Dictation" -i "dialog-error" "Error" "Whisper dictation is not configured."

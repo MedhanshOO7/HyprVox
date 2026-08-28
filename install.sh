@@ -104,7 +104,7 @@ fi
 
 ln -sf "$APP_DIR/whisper-dictate" "$BIN_DIR/whisper-dictate"
 ln -sf "$APP_DIR/whisper-dictate" "$BIN_DIR/hyprvox"
-chmod +x "$APP_DIR/whisper-dictate" "$APP_DIR/overlay.py" "$APP_DIR/transcribe.py" "$APP_DIR/daemon.py"
+chmod +x "$APP_DIR/whisper-dictate" "$APP_DIR/overlay.py" "$APP_DIR/transcribe.py" "$APP_DIR/daemon.py" "$APP_DIR/dict_editor.py"
 
 echo -e "${GREEN}✓ Symlinked launcher to ~/.local/bin/whisper-dictate and ~/.local/bin/hyprvox${RESET}"
 

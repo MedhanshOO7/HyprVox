@@ -5,7 +5,9 @@ import json
 import math
 import time
 import threading
+import subprocess
 import socket
+from pathlib import Path
 import gi
 
 gi.require_version('Gtk', '3.0')
@@ -101,7 +103,7 @@ window {{
     background-color: {hex_to_rgba_css(theme["bg"], bg_alpha)};
     border: 1px solid {hex_to_rgba_css(theme["outline_variant"], 0.40)};
     border-radius: 30px;
-    padding: 12px 28px;
+    padding: 12px 24px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
 }}
 
@@ -117,6 +119,22 @@ window {{
     font-size: 12px;
     color: {theme["on_surface_variant"]};
     margin-top: 2px;
+}}
+
+#dict_btn {{
+    font-family: '{font_fam}', 'Inter', sans-serif;
+    font-size: 13px;
+    color: {theme["on_surface_variant"]};
+    background-color: transparent;
+    border: none;
+    border-radius: 12px;
+    padding: 4px 8px;
+    margin-left: 6px;
+}}
+
+#dict_btn:hover {{
+    color: {theme["primary"]};
+    background-color: {hex_to_rgba_css(theme["surface"], 0.60)};
 }}
 """.encode('utf-8')
 
@@ -147,7 +165,6 @@ class VoiceVisualizer(Gtk.DrawingArea):
         height = widget.get_allocated_height()
         t = time.time() - self.start_time
 
-        # Fast attack, smooth decay
         if self.rms_level > self.smoothed_rms:
             self.smoothed_rms = 0.50 * self.smoothed_rms + 0.50 * self.rms_level
         else:
@@ -163,9 +180,7 @@ class VoiceVisualizer(Gtk.DrawingArea):
             x = start_x + i * (bar_width + spacing)
 
             if self.mode == "RECORDING":
-                # Subtle resting wave when silent
                 base_motion = 0.14 + 0.06 * math.sin(t * 3.0 + i * 1.2)
-                # Dynamic voice expansion above threshold
                 voice_boost = self.smoothed_rms * (0.80 + 0.20 * math.sin(t * 6.0 + i * 1.4))
                 h_factor = min(1.0, max(0.12, base_motion + voice_boost))
                 bar_h = max(5.0, h_factor * (height - 4.0))
@@ -227,6 +242,11 @@ class WhisperOverlay:
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
 
+        # EventBox to capture right-clicks for quick dictionary access
+        self.event_box = Gtk.EventBox()
+        self.event_box.set_visible_window(False)
+        self.event_box.connect("button-press-event", self.on_pill_clicked)
+
         self.box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
         self.box.set_name("pill")
 
@@ -249,10 +269,19 @@ class WhisperOverlay:
         self.text_box.pack_start(self.title_label, False, False, 0)
         self.text_box.pack_start(self.sub_label, False, False, 0)
 
+        # Dictionary Quick Edit Button
+        self.dict_btn = Gtk.Button(label="✎")
+        self.dict_btn.set_name("dict_btn")
+        self.dict_btn.set_tooltip_text("Edit Technical Vocabulary / Dictionary")
+        self.dict_btn.set_valign(Gtk.Align.CENTER)
+        self.dict_btn.connect("clicked", self.on_open_dict_editor)
+
         self.box.pack_start(self.visualizer, False, False, 0)
         self.box.pack_start(self.text_box, True, True, 0)
+        self.box.pack_start(self.dict_btn, False, False, 0)
 
-        self.window.add(self.box)
+        self.event_box.add(self.box)
+        self.window.add(self.event_box)
         self.window.connect("destroy", Gtk.main_quit)
 
         self.anim_timer = GLib.timeout_add(25, self.refresh_animation)
@@ -264,6 +293,21 @@ class WhisperOverlay:
 
         if self.cfg["audio"].get("reactive_audio", True):
             self.start_mic_listener()
+
+    def on_pill_clicked(self, widget, event):
+        # Right click opens dictionary editor
+        if event.button == 3:
+            self.on_open_dict_editor(None)
+            return True
+        return False
+
+    def on_open_dict_editor(self, widget):
+        self.stop_mic_listener()
+        dict_script = Path(__file__).resolve().parent / "dict_editor.py"
+        venv_python = Path(__file__).resolve().parent / "venv" / "bin" / "python"
+        py_bin = str(venv_python) if venv_python.exists() else "python3"
+        subprocess.Popen([py_bin, str(dict_script)])
+        self.close_overlay()
 
     def start_mic_listener(self):
         self.mic_thread_running = True
@@ -279,8 +323,6 @@ class WhisperOverlay:
                 if not self.mic_thread_running:
                     return
                 rms = float(np.sqrt(np.mean(indata**2)))
-                
-                # Adaptive noise floor tracking: quickly adapts downwards, slowly creeps up
                 if rms < self.adaptive_floor:
                     self.adaptive_floor = 0.85 * self.adaptive_floor + 0.15 * rms
                 else:
@@ -316,17 +358,20 @@ class WhisperOverlay:
         self.title_label.set_text("Listening...")
         self.sub_label.set_text("Speak now • Press Super+H to finish")
         self.sub_label.set_visible(True)
+        self.dict_btn.set_visible(True)
 
     def set_transcribing(self):
         self.stop_mic_listener()
         self.visualizer.mode = "TRANSCRIBING"
         self.title_label.set_text("Transcribing...")
         self.sub_label.set_visible(False)
+        self.dict_btn.set_visible(False)
 
     def set_done(self, text=""):
         self.stop_mic_listener()
         self.visualizer.mode = "DONE"
         self.title_label.set_text("Dictated")
+        self.dict_btn.set_visible(False)
         display_text = text if len(text) <= 55 else text[:52] + "..."
         if display_text:
             self.sub_label.set_text(f'"{display_text}"')
