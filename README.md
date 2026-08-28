@@ -17,7 +17,7 @@
 ## ✨ Features
 
 - **⚡ Lightning-Fast Inference**: Powered by [`faster-whisper`](https://github.com/SYSTRAN/faster-whisper) (CTranslate2) running in `float16` on **NVIDIA CUDA**. Latency is typically **~100–150 ms**.
-- **🎤 Real-Time Audio Reactive Visualizer**: Multi-color Cairo waveform bars bounce dynamically in response to your microphone's live speech amplitude (RMS) and calm during pauses.
+- **🎤 Real-Time Audio-Reactive Visualizer**: Multi-color Cairo waveform bars bounce dynamically in response to your microphone's live speech amplitude (RMS) with adaptive ambient noise filtering.
 - **🧠 Tech Glossary & Smart Formatting**:
   - Automatically primes Whisper with technical developer vocabulary (`Hyprland, Wayland, Pacman, Neovim, CachyOS, Python, Rust, zsh...`) to eliminate phonetic misspellings.
   - Spoken punctuation support: say *"new line"*, *"period"*, *"comma"*, *"colon"*, or *"question mark"* and it inserts the proper symbols with smart capitalization.
@@ -25,36 +25,67 @@
 - **🪟 True Wayland LayerShell Overlay**: Uses `gtk-layer-shell` on the `OVERLAY` layer with `KeyboardMode.NONE` — **never steals cursor or keyboard focus from your active text input**.
 - **🌫️ Hyprland Glassmorphism Blur**: Fully supports Hyprland `layerrule` blur for a frosted glass look over active windows.
 - **⌨️ Direct Typing & Clipboard Sync**: Injects text directly into the focused window with `wtype` and saves a copy to your clipboard with `wl-copy`.
-- **⚙️ User Configuration**: Customize models, glossary, UI position, fonts, and sound effects via `~/.config/hyprvox/config.toml`.
+- **⚙️ User Configuration**: Customize models, glossary, UI position, fonts, noise gate, and sound effects via `~/.config/hyprvox/config.toml`.
 
 ---
 
-## 📸 Workflow
+## 🚀 Quick 1-Command Installation
 
-```text
-[ Super + H ]
-     │
-     ▼
-🎙️ Floating Pill Appears (Microphone Reactive Equalizer + PipeWire Recording)
-     │
- (Speak your text)
-     │
-     ▼
-[ Super + H ]
-     │
-     ▼
-⚡ GPU Transcription (~100ms via RTX / NVIDIA CUDA)
-     │
-     ├─► Types directly into active application (wtype)
-     ├─► Copies to Wayland clipboard (wl-copy)
-     └─► Shows brief preview on pill, then smoothly closes
+Clone the repository and run the automated installer:
+
+```bash
+git clone https://github.com/MedhanshOO7/HyprVox.git ~/.local/share/whisper-dictate
+cd ~/.local/share/whisper-dictate
+./install.sh
+```
+
+The installer will:
+1. Detect and verify all system dependencies (`pipewire`, `wtype`, `wl-clipboard`, `gtk-layer-shell`, etc.).
+2. Set up the Python virtual environment with NVIDIA CUDA libraries.
+3. Pre-download the default `small.en` model for zero-wait first run.
+4. Symlink `whisper-dictate` and `hyprvox` into `~/.local/bin/`.
+5. Create your configuration template at `~/.config/hyprvox/config.toml`.
+
+---
+
+## ⌨️ Hyprland Keybind & Blur Rules
+
+### 1. Add Keybind (`~/.config/hypr/custom/keybinds.lua` or `hyprland.conf`)
+
+```lua
+-- Voice Dictation Toggle (Super + H)
+hl.bind("SUPER + H", hl.dsp.exec_cmd("~/.local/bin/whisper-dictate"), { description = "Voice: Toggle AI voice dictation" })
+```
+
+*Or in standard `hyprland.conf`:*
+```ini
+bind = SUPER, H, exec, ~/.local/bin/whisper-dictate
+```
+
+### 2. Add Layer Rule for Blur (`~/.config/hypr/custom/rules.lua` or `hyprland.conf`)
+
+```lua
+-- Translucent floating pill with background blur
+hl.layer_rule({
+    match = { namespace = "whisper-overlay" },
+    blur = true,
+    ignore_alpha = 0.1,
+    animation = "slide bottom",
+})
+```
+
+*Or in standard `hyprland.conf`:*
+```ini
+layerrule = blur, whisper-overlay
+layerrule = ignorealpha 0.1, whisper-overlay
+layerrule = animation slide bottom, whisper-overlay
 ```
 
 ---
 
 ## ⚙️ Configuration (`~/.config/hyprvox/config.toml`)
 
-You can customize HyprVox by editing `~/.config/hyprvox/config.toml`:
+Customize your settings in `~/.config/hyprvox/config.toml`:
 
 ```toml
 [model]
@@ -65,7 +96,9 @@ language = "en"          # "en" for English, "auto" for auto-detect multi-langua
 [audio]
 sample_rate = 16000
 play_sounds = true
-reactive_audio = true    # Set true to react dynamically to microphone loudness in real-time
+reactive_audio = true    # Live microphone amplitude waveform
+noise_gate = 0.18        # Ambient room noise filtering threshold
+mic_sensitivity = 3.0    # Equalizer bounce sensitivity
 
 [formatting]
 smart_punctuation = true # Converts spoken commands ("new line", "period", "comma", etc.)
@@ -82,86 +115,13 @@ margin = 50
 
 ---
 
-## 📦 Dependencies
-
-Ensure the following packages are installed on your system:
-
-### Arch Linux (`pacman` / `yay`)
-```bash
-sudo pacman -S --needed \
-    pipewire \
-    pipewire-audio \
-    wtype \
-    wl-clipboard \
-    libnotify \
-    gtk3 \
-    gtk-layer-shell \
-    python-gobject \
-    cairo \
-    uv
-```
-
----
-
-## 🚀 Installation & Setup
-
-### 1. Clone the Repository
-```bash
-git clone https://github.com/MedhanshOO7/HyprVox.git ~/.local/share/whisper-dictate
-cd ~/.local/share/whisper-dictate
-```
-
-### 2. Create the Python Environment & Install CUDA Whisper
-Using [`uv`](https://github.com/astral-sh/uv) (recommended) or standard `venv`:
-```bash
-uv venv venv --python 3.12
-uv pip install --python venv/bin/python \
-    faster-whisper \
-    nvidia-cublas-cu12 \
-    nvidia-cudnn-cu12 \
-    sounddevice \
-    numpy
-```
-
-### 3. Install the Launcher Script
-```bash
-mkdir -p ~/.local/bin ~/.config/hyprvox
-cp config.example.toml ~/.config/hyprvox/config.toml
-ln -sf ~/.local/share/whisper-dictate/whisper-dictate ~/.local/bin/whisper-dictate
-chmod +x ~/.local/bin/whisper-dictate
-```
-
----
-
-## ⌨️ Hyprland Keybind & Blur Rules
-
-### 1. Add Keybind (`~/.config/hypr/custom/keybinds.lua` or `hyprland.conf`)
-
-```lua
--- Voice Dictation Toggle (Super + H)
-hl.bind("SUPER + H", hl.dsp.exec_cmd("~/.local/bin/whisper-dictate"), { description = "Voice: Toggle AI voice dictation" })
-```
-
-### 2. Add Layer Rule for Blur (`~/.config/hypr/custom/rules.lua` or `hyprland.conf`)
-
-```lua
--- Translucent floating pill with background blur
-hl.layer_rule({
-    match = { namespace = "whisper-overlay" },
-    blur = true,
-    ignore_alpha = 0.1,
-    animation = "slide bottom",
-})
-```
-
----
-
 ## 📂 Project Structure
 
 ```
 HyprVox/
-├── whisper-dictate       # Main bash toggle & PipeWire recorder
-├── overlay.py            # GTK LayerShell floating visualizer & live audio reactive waveform
+├── install.sh            # Automated installer script
+├── whisper-dictate       # Main toggle & PipeWire recorder
+├── overlay.py            # GTK LayerShell floating visualizer & live audio-reactive waveform
 ├── transcribe.py         # CUDA faster-whisper worker with VAD silence trimming & smart formatting
 ├── config.example.toml   # Default configuration template
 ├── README.md             # Project documentation
