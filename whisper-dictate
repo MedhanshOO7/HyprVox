@@ -7,12 +7,17 @@ PID_FILE="/tmp/whisper_dictate.pid"
 OVERLAY_PID_FILE="/tmp/whisper_overlay.pid"
 AUDIO_FILE="/tmp/whisper_dictate.wav"
 SOCKET_PATH="/tmp/whisper_overlay.sock"
-MODEL="${WHISPER_MODEL:-small.en}"
+CONFIG_PATH="$HOME/.config/hyprvox/config.toml"
 SOUND_START="/usr/share/sounds/freedesktop/stereo/message-new-instant.oga"
 SOUND_DONE="/usr/share/sounds/freedesktop/stereo/complete.oga"
 
+PYTHON_BIN="$VENV/bin/python"
+if [ ! -x "$PYTHON_BIN" ]; then
+    PYTHON_BIN="python3"
+fi
+
 # Ensure venv and transcribe script exist
-if [ ! -f "$VENV/bin/python" ] || [ ! -f "$APP_DIR/transcribe.py" ]; then
+if [ ! -f "$APP_DIR/transcribe.py" ]; then
     notify-send -a "Voice Dictation" -i "dialog-error" "Error" "Whisper dictation is not configured."
     exit 1
 fi
@@ -52,9 +57,9 @@ if [ -f "$PID_FILE" ]; then
         send_overlay_msg "TRANSCRIBING"
 
         if [ -f "$AUDIO_FILE" ] && [ -s "$AUDIO_FILE" ]; then
-            # Run CUDA accelerated transcription
+            # Run CUDA accelerated transcription with smart formatting & glossary
             TEXT=$(LD_LIBRARY_PATH="$VENV/lib/python3.12/site-packages/nvidia/cudnn/lib:$VENV/lib/python3.12/site-packages/nvidia/cublas/lib:$LD_LIBRARY_PATH" \
-                "$VENV/bin/python" "$APP_DIR/transcribe.py" "$AUDIO_FILE" --model "$MODEL" 2>/dev/null || echo "")
+                "$PYTHON_BIN" "$APP_DIR/transcribe.py" "$AUDIO_FILE" 2>/dev/null || echo "")
 
             rm -f "$AUDIO_FILE"
 
@@ -68,7 +73,6 @@ if [ -f "$PID_FILE" ]; then
                 fi
 
                 # Notify overlay of completion
-                # Escape single quotes for python socket call
                 SAFE_TEXT=$(printf "%s" "$TEXT" | tr '\n' ' ' | sed "s/'/\\\\'/g")
                 send_overlay_msg "DONE:$SAFE_TEXT"
             else
@@ -95,9 +99,9 @@ if [ -f "$OVERLAY_PID_FILE" ]; then
     rm -f "$OVERLAY_PID_FILE"
 fi
 
-# Launch floating overlay
+# Launch floating overlay with venv python
 if [ -f "$APP_DIR/overlay.py" ]; then
-    python3 "$APP_DIR/overlay.py" >/dev/null 2>&1 &
+    "$PYTHON_BIN" "$APP_DIR/overlay.py" >/dev/null 2>&1 &
     echo $! > "$OVERLAY_PID_FILE"
 fi
 

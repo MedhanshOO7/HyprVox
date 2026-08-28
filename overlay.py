@@ -15,6 +15,31 @@ import cairo
 
 SOCKET_PATH = "/tmp/whisper_overlay.sock"
 COLORS_JSON_PATH = os.path.expanduser("~/.local/state/quickshell/user/generated/colors.json")
+CONFIG_PATH = os.path.expanduser("~/.config/hyprvox/config.toml")
+
+def load_user_config():
+    defaults = {
+        "audio": {"reactive_audio": True},
+        "ui": {
+            "font_family": "Google Sans Flex",
+            "font_size": 16,
+            "transparency": 0.65,
+            "position": "bottom",
+            "margin": 50,
+        }
+    }
+    if os.path.exists(CONFIG_PATH):
+        try:
+            import tomllib
+            with open(CONFIG_PATH, "rb") as f:
+                cfg = tomllib.load(f)
+                defaults["audio"].update(cfg.get("audio", {}))
+                defaults["ui"].update(cfg.get("ui", {}))
+        except Exception:
+            pass
+    return defaults
+
+user_cfg = load_user_config()
 
 def hex_to_rgb(hex_str):
     hex_str = hex_str.lstrip('#')
@@ -58,6 +83,10 @@ def load_quickshell_theme():
 
 theme = load_quickshell_theme()
 
+font_fam = user_cfg["ui"].get("font_family", "Google Sans Flex")
+font_sz = user_cfg["ui"].get("font_size", 16)
+bg_alpha = user_cfg["ui"].get("transparency", 0.65)
+
 CSS = f"""
 window {{
     background-color: transparent;
@@ -65,7 +94,7 @@ window {{
 }}
 
 #pill {{
-    background-color: {hex_to_rgba_css(theme["bg"], 0.65)};
+    background-color: {hex_to_rgba_css(theme["bg"], bg_alpha)};
     border: 1px solid {hex_to_rgba_css(theme["outline_variant"], 0.40)};
     border-radius: 30px;
     padding: 12px 28px;
@@ -73,14 +102,14 @@ window {{
 }}
 
 #title {{
-    font-family: 'Google Sans Flex', 'Inter', 'Segoe UI', sans-serif;
-    font-size: 16px;
+    font-family: '{font_fam}', 'Inter', 'Segoe UI', sans-serif;
+    font-size: {font_sz}px;
     font-weight: 600;
     color: {theme["on_surface"]};
 }}
 
 #subtitle {{
-    font-family: 'Google Sans Flex', 'Inter', 'Segoe UI', sans-serif;
+    font-family: '{font_fam}', 'Inter', 'Segoe UI', sans-serif;
     font-size: 12px;
     color: {theme["on_surface_variant"]};
     margin-top: 2px;
@@ -95,6 +124,8 @@ class VoiceVisualizer(Gtk.DrawingArea):
         self.num_bars = 5
         self.mode = "RECORDING"
         self.start_time = time.time()
+        self.rms_level = 0.0
+        self.smoothed_rms = 0.0
         
         self.bar_colors = [
             hex_to_rgb(theme_data["primary"]),
@@ -104,10 +135,16 @@ class VoiceVisualizer(Gtk.DrawingArea):
             hex_to_rgb(theme_data["tertiary"]),
         ]
 
+    def set_volume_level(self, level):
+        self.rms_level = max(0.0, min(1.0, level))
+
     def on_draw(self, widget, cr):
         width = widget.get_allocated_width()
         height = widget.get_allocated_height()
         t = time.time() - self.start_time
+
+        # Smooth volume level
+        self.smoothed_rms = 0.75 * self.smoothed_rms + 0.25 * self.rms_level
 
         bar_width = 3.5
         spacing = 4.0
@@ -119,13 +156,14 @@ class VoiceVisualizer(Gtk.DrawingArea):
             x = start_x + i * (bar_width + spacing)
 
             if self.mode == "RECORDING":
-                freq1 = 4.5 + (i * 0.8)
-                freq2 = 2.2 - (i * 0.3)
-                h_factor = 0.35 + 0.35 * math.sin(t * freq1 + i * 1.2) + 0.25 * math.cos(t * freq2 + i * 0.9)
-                bar_h = max(6.0, h_factor * (height - 4.0))
+                # Real-time microphone reactive height combined with organic oscillation
+                base_motion = 0.20 + 0.15 * math.sin(t * 4.0 + i * 1.3)
+                voice_boost = self.smoothed_rms * (1.2 + 0.3 * math.cos(t * 6.0 + i))
+                h_factor = min(1.0, base_motion + voice_boost)
+                bar_h = max(5.0, h_factor * (height - 4.0))
             elif self.mode == "TRANSCRIBING":
                 wave = math.sin(t * 8.0 - i * 0.9)
-                bar_h = 6.0 + 8.0 * (0.5 + 0.5 * wave)
+                bar_h = 5.0 + 8.0 * (0.5 + 0.5 * wave)
             else:
                 bar_h = 5.0
 
@@ -145,8 +183,9 @@ class VoiceVisualizer(Gtk.DrawingArea):
         return False
 
 class WhisperOverlay:
-    def __init__(self, theme_data):
+    def __init__(self, theme_data, config_data):
         self.theme = theme_data
+        self.cfg = config_data
         self.window = Gtk.Window()
         self.window.set_title("Whisper Dictation")
         self.window.set_app_paintable(True)
@@ -160,8 +199,16 @@ class WhisperOverlay:
         GtkLayerShell.set_namespace(self.window, "whisper-overlay")
         GtkLayerShell.set_layer(self.window, GtkLayerShell.Layer.OVERLAY)
         GtkLayerShell.set_keyboard_mode(self.window, GtkLayerShell.KeyboardMode.NONE)
-        GtkLayerShell.set_anchor(self.window, GtkLayerShell.Edge.BOTTOM, True)
-        GtkLayerShell.set_margin(self.window, GtkLayerShell.Edge.BOTTOM, 50)
+
+        # Configurable position
+        pos = self.cfg["ui"].get("position", "bottom").lower()
+        margin = self.cfg["ui"].get("margin", 50)
+        if pos == "top":
+            GtkLayerShell.set_anchor(self.window, GtkLayerShell.Edge.TOP, True)
+            GtkLayerShell.set_margin(self.window, GtkLayerShell.Edge.TOP, margin)
+        else:
+            GtkLayerShell.set_anchor(self.window, GtkLayerShell.Edge.BOTTOM, True)
+            GtkLayerShell.set_margin(self.window, GtkLayerShell.Edge.BOTTOM, margin)
 
         self.window.connect("draw", self.on_window_draw)
 
@@ -202,6 +249,38 @@ class WhisperOverlay:
         self.window.connect("destroy", Gtk.main_quit)
 
         self.anim_timer = GLib.timeout_add(25, self.refresh_animation)
+        self.mic_thread_running = False
+
+        if self.cfg["audio"].get("reactive_audio", True):
+            self.start_mic_listener()
+
+    def start_mic_listener(self):
+        self.mic_thread_running = True
+        t = threading.Thread(target=self._mic_worker, daemon=True)
+        t.start()
+
+    def _mic_worker(self):
+        try:
+            import numpy as np
+            import sounddevice as sd
+
+            def audio_cb(indata, frames, time_info, status):
+                if not self.mic_thread_running:
+                    return
+                rms = float(np.sqrt(np.mean(indata**2)))
+                # Normalized level between 0.0 and 1.0
+                norm_level = min(1.0, rms * 14.0)
+                GLib.idle_add(self.visualizer.set_volume_level, norm_level)
+
+            with sd.InputStream(callback=audio_cb, channels=1, samplerate=16000, blocksize=512):
+                while self.mic_thread_running:
+                    time.sleep(0.05)
+        except Exception:
+            pass
+
+    def stop_mic_listener(self):
+        self.mic_thread_running = False
+        GLib.idle_add(self.visualizer.set_volume_level, 0.0)
 
     def on_window_draw(self, widget, cr):
         cr.set_source_rgba(0, 0, 0, 0)
@@ -220,12 +299,13 @@ class WhisperOverlay:
         self.sub_label.set_visible(True)
 
     def set_transcribing(self):
+        self.stop_mic_listener()
         self.visualizer.mode = "TRANSCRIBING"
         self.title_label.set_text("Transcribing...")
-        # Remove the subtitle line during transcription
         self.sub_label.set_visible(False)
 
     def set_done(self, text=""):
+        self.stop_mic_listener()
         self.visualizer.mode = "DONE"
         self.title_label.set_text("Dictated")
         display_text = text if len(text) <= 55 else text[:52] + "..."
@@ -237,6 +317,7 @@ class WhisperOverlay:
         GLib.timeout_add(1300, self.close_overlay)
 
     def close_overlay(self):
+        self.stop_mic_listener()
         Gtk.main_quit()
         return False
 
@@ -270,7 +351,7 @@ def socket_listener(overlay):
 
 def main():
     current_theme = load_quickshell_theme()
-    overlay = WhisperOverlay(current_theme)
+    overlay = WhisperOverlay(current_theme, user_cfg)
     if len(sys.argv) > 1 and sys.argv[1] == "--transcribing":
         overlay.set_transcribing()
     else:

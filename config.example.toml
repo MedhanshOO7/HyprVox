@@ -1,0 +1,25 @@
+# HyprVox Configuration File
+
+[model]
+name = "small.en"        # Options: base.en (fastest), small.en (balanced), distil-large-v3 (highest accuracy)
+compute_type = "float16" # float16 for NVIDIA CUDA GPUs, int8 for CPU fallback
+language = "en"          # "en" for English, "auto" for auto-detect multi-language
+
+[audio]
+sample_rate = 16000
+play_sounds = true
+sound_start = "/usr/share/sounds/freedesktop/stereo/message-new-instant.oga"
+sound_done = "/usr/share/sounds/freedesktop/stereo/complete.oga"
+reactive_audio = true    # Set true to react dynamically to microphone loudness in real-time
+
+[formatting]
+smart_punctuation = true # Converts spoken commands ("new line", "period", "comma", etc.)
+# Custom vocabulary glossary to prime Whisper for technical terms
+custom_prompt = "Hyprland, Wayland, Arch Linux, CachyOS, Neovim, Pacman, Yay, GitHub, Python, Rust, Zsh, Quickshell, Matugen, NVIDIA, CUDA, PipeWire, PyGObject, GTK"
+
+[ui]
+font_family = "Google Sans Flex"
+font_size = 16
+transparency = 0.65
+position = "bottom"      # "bottom" or "top"
+margin = 50

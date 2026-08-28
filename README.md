@@ -2,7 +2,7 @@
 
 # 🎙️ HyprVox
 
-### Ultra-fast, GPU-accelerated AI Voice Dictation with a Dynamic Material You Floating Overlay for Hyprland & Wayland.
+### Ultra-fast, GPU-accelerated AI Voice Dictation with Dynamic Material You Theming & Audio-Reactive Waveforms for Hyprland & Wayland.
 
 [![Arch Linux](https://img.shields.io/badge/Arch_Linux-1793D1?logo=arch-linux&logoColor=white&style=flat-square)](https://archlinux.org/)
 [![Wayland](https://img.shields.io/badge/Wayland-Native-brightgreen?style=flat-square)](https://wayland.freedesktop.org/)
@@ -16,16 +16,16 @@
 
 ## ✨ Features
 
-- **⚡ Lightning-Fast Inference**: Powered by [`faster-whisper`](https://github.com/SYSTRAN/faster-whisper) (CTranslate2) running in `float16` on **NVIDIA CUDA**. Typical transcription latency is only **~100–150 ms**.
-- **🎨 Dynamic Material You & Quickshell Theming**: The floating pill automatically pulls and synchronizes colors (`primary`, `tertiary`, `surface`, `outline`), background transparency (`0.65`), and typography (`Google Sans Flex` / `Inter`) from your active Quickshell / Matugen desktop palette in real time.
-- **🌊 Animated Waveform Visualizer**: Smooth 40 FPS multi-color animated voice equalizers built with Cairo:
-  - **Listening**: Multi-harmonic organic voice bounce across dynamic accent colors.
-  - **Transcribing**: Fluid traveling sine wave shimmer.
-  - **Done**: Quick text preview before auto-dismissing.
+- **⚡ Lightning-Fast Inference**: Powered by [`faster-whisper`](https://github.com/SYSTRAN/faster-whisper) (CTranslate2) running in `float16` on **NVIDIA CUDA**. Latency is typically **~100–150 ms**.
+- **🎤 Real-Time Audio Reactive Visualizer**: Multi-color Cairo waveform bars bounce dynamically in response to your microphone's live speech amplitude (RMS) and calm during pauses.
+- **🧠 Tech Glossary & Smart Formatting**:
+  - Automatically primes Whisper with technical developer vocabulary (`Hyprland, Wayland, Pacman, Neovim, CachyOS, Python, Rust, zsh...`) to eliminate phonetic misspellings.
+  - Spoken punctuation support: say *"new line"*, *"period"*, *"comma"*, *"colon"*, or *"question mark"* and it inserts the proper symbols with smart capitalization.
+- **🎨 Dynamic Material You & Quickshell Theming**: The floating pill automatically synchronizes colors (`primary`, `tertiary`, `surface`, `outline`), background transparency (`0.65`), and typography (`Google Sans Flex` / `Inter`) from your active Quickshell / Matugen desktop palette in real time.
 - **🪟 True Wayland LayerShell Overlay**: Uses `gtk-layer-shell` on the `OVERLAY` layer with `KeyboardMode.NONE` — **never steals cursor or keyboard focus from your active text input**.
 - **🌫️ Hyprland Glassmorphism Blur**: Fully supports Hyprland `layerrule` blur for a frosted glass look over active windows.
-- **⌨️ Direct Typing & Clipboard Sync**: Injects transcribed text directly into the focused window using `wtype` and saves a copy to your clipboard with `wl-copy`.
-- **🔊 PipeWire Audio & Sound Cues**: Low-latency 16 kHz mono capture via `pw-record` with subtle audio feedback.
+- **⌨️ Direct Typing & Clipboard Sync**: Injects text directly into the focused window with `wtype` and saves a copy to your clipboard with `wl-copy`.
+- **⚙️ User Configuration**: Customize models, glossary, UI position, fonts, and sound effects via `~/.config/hyprvox/config.toml`.
 
 ---
 
@@ -35,7 +35,7 @@
 [ Super + H ]
      │
      ▼
-🎙️ Floating Pill Appears (Waveform Animating + PipeWire Recording)
+🎙️ Floating Pill Appears (Microphone Reactive Equalizer + PipeWire Recording)
      │
  (Speak your text)
      │
@@ -48,6 +48,36 @@
      ├─► Types directly into active application (wtype)
      ├─► Copies to Wayland clipboard (wl-copy)
      └─► Shows brief preview on pill, then smoothly closes
+```
+
+---
+
+## ⚙️ Configuration (`~/.config/hyprvox/config.toml`)
+
+You can customize HyprVox by editing `~/.config/hyprvox/config.toml`:
+
+```toml
+[model]
+name = "small.en"        # Options: base.en (fastest), small.en (balanced), distil-large-v3 (highest accuracy)
+compute_type = "float16" # float16 for NVIDIA CUDA GPUs, int8 for CPU fallback
+language = "en"          # "en" for English, "auto" for auto-detect multi-language
+
+[audio]
+sample_rate = 16000
+play_sounds = true
+reactive_audio = true    # Set true to react dynamically to microphone loudness in real-time
+
+[formatting]
+smart_punctuation = true # Converts spoken commands ("new line", "period", "comma", etc.)
+# Custom vocabulary glossary to prime Whisper for technical terms
+custom_prompt = "Hyprland, Wayland, Arch Linux, CachyOS, Neovim, Pacman, Yay, GitHub, Python, Rust, Zsh, Quickshell, Matugen, NVIDIA, CUDA, PipeWire, PyGObject, GTK"
+
+[ui]
+font_family = "Google Sans Flex"
+font_size = 16
+transparency = 0.65
+position = "bottom"      # "bottom" or "top"
+margin = 50
 ```
 
 ---
@@ -88,31 +118,28 @@ uv venv venv --python 3.12
 uv pip install --python venv/bin/python \
     faster-whisper \
     nvidia-cublas-cu12 \
-    nvidia-cudnn-cu12
+    nvidia-cudnn-cu12 \
+    sounddevice \
+    numpy
 ```
 
 ### 3. Install the Launcher Script
 ```bash
-mkdir -p ~/.local/bin
+mkdir -p ~/.local/bin ~/.config/hyprvox
+cp config.example.toml ~/.config/hyprvox/config.toml
 ln -sf ~/.local/share/whisper-dictate/whisper-dictate ~/.local/bin/whisper-dictate
 chmod +x ~/.local/bin/whisper-dictate
 ```
-*(Ensure `~/.local/bin` is in your `$PATH`)*
 
 ---
 
-## ⚙️ Hyprland Configuration
+## ⌨️ Hyprland Keybind & Blur Rules
 
 ### 1. Add Keybind (`~/.config/hypr/custom/keybinds.lua` or `hyprland.conf`)
 
 ```lua
 -- Voice Dictation Toggle (Super + H)
 hl.bind("SUPER + H", hl.dsp.exec_cmd("~/.local/bin/whisper-dictate"), { description = "Voice: Toggle AI voice dictation" })
-```
-
-*Or in standard `hyprland.conf`:*
-```ini
-bind = SUPER, H, exec, ~/.local/bin/whisper-dictate
 ```
 
 ### 2. Add Layer Rule for Blur (`~/.config/hypr/custom/rules.lua` or `hyprland.conf`)
@@ -127,30 +154,6 @@ hl.layer_rule({
 })
 ```
 
-*Or in standard `hyprland.conf`:*
-```ini
-layerrule = blur, whisper-overlay
-layerrule = ignorealpha 0.1, whisper-overlay
-layerrule = animation slide bottom, whisper-overlay
-```
-
----
-
-## 🛠️ Configuration & Models
-
-You can customize the Whisper model by setting `WHISPER_MODEL` in your environment or editing `~/.local/bin/whisper-dictate`:
-
-| Model | Size | VRAM Usage | Latency (RTX 4050) | Recommended For |
-| :--- | :--- | :--- | :--- | :--- |
-| `base.en` | ~140 MB | ~400 MB | ~50 ms | Ultra-fast casual dictation |
-| `small.en` *(default)* | ~460 MB | ~900 MB | ~120 ms | High accuracy & everyday use |
-| `distil-large-v3` | ~1.5 GB | ~2.0 GB | ~200 ms | Complex technical / coding terms |
-
-Example:
-```bash
-export WHISPER_MODEL="small.en"
-```
-
 ---
 
 ## 📂 Project Structure
@@ -158,17 +161,13 @@ export WHISPER_MODEL="small.en"
 ```
 HyprVox/
 ├── whisper-dictate       # Main bash toggle & PipeWire recorder
-├── overlay.py            # GTK LayerShell floating visualizer & Cairo waveform
-├── transcribe.py         # CUDA faster-whisper worker with VAD silence trimming
+├── overlay.py            # GTK LayerShell floating visualizer & live audio reactive waveform
+├── transcribe.py         # CUDA faster-whisper worker with VAD silence trimming & smart formatting
+├── config.example.toml   # Default configuration template
 ├── README.md             # Project documentation
+├── LICENSE               # MIT License
 └── .gitignore            # Git exclusion rules
 ```
-
----
-
-## 🤝 Contributing
-
-Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/MedhanshOO7/HyprVox/issues).
 
 ---
 
