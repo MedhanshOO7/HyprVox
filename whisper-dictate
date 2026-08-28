@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+APP_DIR="$HOME/.local/share/whisper-dictate"
+VENV="$APP_DIR/venv"
+PID_FILE="/tmp/whisper_dictate.pid"
+OVERLAY_PID_FILE="/tmp/whisper_overlay.pid"
+AUDIO_FILE="/tmp/whisper_dictate.wav"
+SOCKET_PATH="/tmp/whisper_overlay.sock"
+MODEL="${WHISPER_MODEL:-small.en}"
+SOUND_START="/usr/share/sounds/freedesktop/stereo/message-new-instant.oga"
+SOUND_DONE="/usr/share/sounds/freedesktop/stereo/complete.oga"
+
+# Ensure venv and transcribe script exist
+if [ ! -f "$VENV/bin/python" ] || [ ! -f "$APP_DIR/transcribe.py" ]; then
+    notify-send -a "Voice Dictation" -i "dialog-error" "Error" "Whisper dictation is not configured."
+    exit 1
+fi
+
+send_overlay_msg() {
+    local msg="$1"
+    if [ -S "$SOCKET_PATH" ]; then
+        python3 -c "
+import socket
+try:
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+    s.sendto(b'$msg', '$SOCKET_PATH')
+except Exception:
+    pass
+" 2>/dev/null || true
+    fi
+}
+
+play_sound() {
+    local sound_file="$1"
+    if [ -f "$sound_file" ] && command -v pw-play >/dev/null 2>&1; then
+        pw-play "$sound_file" >/dev/null 2>&1 &
+    fi
+}
+
+# Check if currently recording (TOGGLE: Stop recording & transcribe)
+if [ -f "$PID_FILE" ]; then
+    PID=$(cat "$PID_FILE" 2>/dev/null || echo "")
+    rm -f "$PID_FILE"
+
+    if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
+        # Stop recording process
+        kill -INT "$PID" 2>/dev/null || kill "$PID" 2>/dev/null
+        sleep 0.15
+
+        play_sound "$SOUND_DONE"
+        send_overlay_msg "TRANSCRIBING"
+
+        if [ -f "$AUDIO_FILE" ] && [ -s "$AUDIO_FILE" ]; then
+            # Run CUDA accelerated transcription
+            TEXT=$(LD_LIBRARY_PATH="$VENV/lib/python3.12/site-packages/nvidia/cudnn/lib:$VENV/lib/python3.12/site-packages/nvidia/cublas/lib:$LD_LIBRARY_PATH" \
+                "$VENV/bin/python" "$APP_DIR/transcribe.py" "$AUDIO_FILE" --model "$MODEL" 2>/dev/null || echo "")
+
+            rm -f "$AUDIO_FILE"
+
+            if [ -n "$TEXT" ]; then
+                # Copy to clipboard as backup
+                printf "%s" "$TEXT" | wl-copy 2>/dev/null || true
+
+                # Type into active Wayland window
+                if command -v wtype >/dev/null 2>&1; then
+                    wtype "$TEXT "
+                fi
+
+                # Notify overlay of completion
+                # Escape single quotes for python socket call
+                SAFE_TEXT=$(printf "%s" "$TEXT" | tr '\n' ' ' | sed "s/'/\\\\'/g")
+                send_overlay_msg "DONE:$SAFE_TEXT"
+            else
+                send_overlay_msg "QUIT"
+                notify-send -t 1500 -a "Voice Dictation" -i "dialog-warning" "⚠️ No speech detected" "Audio was silent or unclear."
+            fi
+        else
+            send_overlay_msg "QUIT"
+            notify-send -t 1500 -a "Voice Dictation" -i "dialog-error" "Error" "Audio recording failed."
+        fi
+        exit 0
+    fi
+fi
+
+# NOT recording: START recording
+rm -f "$AUDIO_FILE" "$PID_FILE"
+
+# Clean up stale overlay if any
+if [ -f "$OVERLAY_PID_FILE" ]; then
+    OLD_OVERLAY=$(cat "$OVERLAY_PID_FILE" 2>/dev/null || echo "")
+    if [ -n "$OLD_OVERLAY" ] && kill -0 "$OLD_OVERLAY" 2>/dev/null; then
+        kill "$OLD_OVERLAY" 2>/dev/null || true
+    fi
+    rm -f "$OVERLAY_PID_FILE"
+fi
+
+# Launch floating overlay
+if [ -f "$APP_DIR/overlay.py" ]; then
+    python3 "$APP_DIR/overlay.py" >/dev/null 2>&1 &
+    echo $! > "$OVERLAY_PID_FILE"
+fi
+
+# Start PipeWire recording (16kHz, mono 16-bit PCM WAV)
+pw-record --channels 1 --rate 16000 --format s16 "$AUDIO_FILE" >/dev/null 2>&1 &
+REC_PID=$!
+echo "$REC_PID" > "$PID_FILE"
+
+play_sound "$SOUND_START"
