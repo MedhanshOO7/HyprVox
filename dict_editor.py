@@ -57,14 +57,14 @@ window {{
 #dialog_box {{
     background-color: {hex_to_rgba_css(theme["bg"], 0.88)};
     border: 1px solid {hex_to_rgba_css(theme["outline_variant"], 0.50)};
-    border-radius: 20px;
+    border-radius: 24px;
     padding: 24px;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
 }}
 
 #header_title {{
     font-family: 'Google Sans Flex', 'Inter', sans-serif;
-    font-size: 17px;
+    font-size: 18px;
     font-weight: bold;
     color: {theme["on_surface"]};
 }}
@@ -80,7 +80,7 @@ window {{
     background-color: {hex_to_rgba_css(theme["surface"], 0.85)};
     border: 1px solid {hex_to_rgba_css(theme["outline_variant"], 0.35)};
     border-radius: 14px;
-    padding: 4px 10px;
+    padding: 5px 12px;
 }}
 
 #tag_text {{
@@ -107,9 +107,9 @@ window {{
     font-size: 13px;
     background-color: {hex_to_rgba_css(theme["surface"], 0.70)};
     border: 1px solid {hex_to_rgba_css(theme["outline_variant"], 0.40)};
-    border-radius: 12px;
+    border-radius: 14px;
     color: {theme["on_surface"]};
-    padding: 8px 14px;
+    padding: 10px 16px;
 }}
 
 #add_entry:focus {{
@@ -122,9 +122,9 @@ window {{
     font-weight: 600;
     background-color: {theme["primary"]};
     color: #121318;
-    border-radius: 12px;
+    border-radius: 14px;
     border: none;
-    padding: 8px 18px;
+    padding: 10px 20px;
 }}
 
 #action_btn:hover {{
@@ -138,7 +138,7 @@ window {{
     color: {theme["on_surface_variant"]};
     border: 1px solid {hex_to_rgba_css(theme["outline_variant"], 0.40)};
     border-radius: 12px;
-    padding: 6px 14px;
+    padding: 7px 16px;
 }}
 
 #sec_btn:hover {{
@@ -150,7 +150,9 @@ window {{
 class DictionaryEditor(Gtk.Window):
     def __init__(self):
         super().__init__(title="HyprVox Dictionary")
-        self.set_default_size(520, 380)
+        self.set_wmclass("hyprvox-dictionary", "hyprvox-dictionary")
+        self.set_role("hyprvox-dictionary")
+        self.set_default_size(560, 420)
         self.set_position(Gtk.WindowPosition.CENTER)
         self.set_app_paintable(True)
 
@@ -181,7 +183,7 @@ class DictionaryEditor(Gtk.Window):
         title_label.set_name("header_title")
         title_label.set_xalign(0.0)
 
-        sub_label = Gtk.Label(label="These words prime Whisper for 100% accuracy on code and custom terms.")
+        sub_label = Gtk.Label(label="Custom terms primed in Whisper to guarantee 100% spelling accuracy.")
         sub_label.set_name("header_subtitle")
         sub_label.set_xalign(0.0)
 
@@ -192,7 +194,7 @@ class DictionaryEditor(Gtk.Window):
         # Tags Cloud in Scrolled Window
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        scrolled.set_min_content_height(160)
+        scrolled.set_min_content_height(180)
 
         self.flowbox = Gtk.FlowBox()
         self.flowbox.set_valign(Gtk.Align.START)
@@ -310,7 +312,6 @@ class DictionaryEditor(Gtk.Window):
     def on_add_word(self, widget):
         text = self.entry.get_text().strip()
         if text:
-            # Support comma separated adds
             new_items = [w.strip() for w in text.split(",") if w.strip()]
             for item in new_items:
                 if item not in self.words:

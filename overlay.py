@@ -124,17 +124,19 @@ window {{
 #dict_btn {{
     font-family: '{font_fam}', 'Inter', sans-serif;
     font-size: 13px;
-    color: {theme["on_surface_variant"]};
-    background-color: transparent;
-    border: none;
-    border-radius: 12px;
-    padding: 4px 8px;
-    margin-left: 6px;
+    font-weight: 600;
+    color: {theme["primary"]};
+    background-color: {hex_to_rgba_css(theme["surface"], 0.85)};
+    border: 1px solid {hex_to_rgba_css(theme["outline_variant"], 0.45)};
+    border-radius: 16px;
+    padding: 6px 14px;
+    margin-left: 8px;
 }}
 
 #dict_btn:hover {{
-    color: {theme["primary"]};
-    background-color: {hex_to_rgba_css(theme["surface"], 0.60)};
+    color: #121318;
+    background-color: {theme["primary"]};
+    border: 1px solid {theme["primary"]};
 }}
 """.encode('utf-8')
 
@@ -242,7 +244,6 @@ class WhisperOverlay:
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
 
-        # EventBox to capture right-clicks for quick dictionary access
         self.event_box = Gtk.EventBox()
         self.event_box.set_visible_window(False)
         self.event_box.connect("button-press-event", self.on_pill_clicked)
@@ -269,10 +270,10 @@ class WhisperOverlay:
         self.text_box.pack_start(self.title_label, False, False, 0)
         self.text_box.pack_start(self.sub_label, False, False, 0)
 
-        # Dictionary Quick Edit Button
-        self.dict_btn = Gtk.Button(label="✎")
+        # Distinguishable Dictionary Button
+        self.dict_btn = Gtk.Button(label="✎ Dict")
         self.dict_btn.set_name("dict_btn")
-        self.dict_btn.set_tooltip_text("Edit Technical Vocabulary / Dictionary")
+        self.dict_btn.set_tooltip_text("Open Vocabulary & Technical Dictionary Manager")
         self.dict_btn.set_valign(Gtk.Align.CENTER)
         self.dict_btn.connect("clicked", self.on_open_dict_editor)
 
@@ -295,7 +296,6 @@ class WhisperOverlay:
             self.start_mic_listener()
 
     def on_pill_clicked(self, widget, event):
-        # Right click opens dictionary editor
         if event.button == 3:
             self.on_open_dict_editor(None)
             return True
