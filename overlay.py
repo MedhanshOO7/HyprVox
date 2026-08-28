@@ -58,7 +58,6 @@ def load_quickshell_theme():
 
 theme = load_quickshell_theme()
 
-# Translucent CSS with true alpha matching top bar (0.65 background, 0.40 border)
 CSS = f"""
 window {{
     background-color: transparent;
@@ -68,30 +67,30 @@ window {{
 #pill {{
     background-color: {hex_to_rgba_css(theme["bg"], 0.65)};
     border: 1px solid {hex_to_rgba_css(theme["outline_variant"], 0.40)};
-    border-radius: 28px;
-    padding: 10px 24px;
+    border-radius: 30px;
+    padding: 12px 28px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
 }}
 
 #title {{
     font-family: 'Google Sans Flex', 'Inter', 'Segoe UI', sans-serif;
-    font-size: 13px;
+    font-size: 16px;
     font-weight: 600;
     color: {theme["on_surface"]};
 }}
 
 #subtitle {{
     font-family: 'Google Sans Flex', 'Inter', 'Segoe UI', sans-serif;
-    font-size: 11px;
+    font-size: 12px;
     color: {theme["on_surface_variant"]};
-    margin-top: 1px;
+    margin-top: 2px;
 }}
 """.encode('utf-8')
 
 class VoiceVisualizer(Gtk.DrawingArea):
     def __init__(self, theme_data):
         super().__init__()
-        self.set_size_request(34, 24)
+        self.set_size_request(38, 28)
         self.connect("draw", self.on_draw)
         self.num_bars = 5
         self.mode = "RECORDING"
@@ -110,8 +109,8 @@ class VoiceVisualizer(Gtk.DrawingArea):
         height = widget.get_allocated_height()
         t = time.time() - self.start_time
 
-        bar_width = 3.0
-        spacing = 3.5
+        bar_width = 3.5
+        spacing = 4.0
         total_bars_width = (self.num_bars * bar_width) + ((self.num_bars - 1) * spacing)
         start_x = (width - total_bars_width) / 2.0
         center_y = height / 2.0
@@ -123,12 +122,12 @@ class VoiceVisualizer(Gtk.DrawingArea):
                 freq1 = 4.5 + (i * 0.8)
                 freq2 = 2.2 - (i * 0.3)
                 h_factor = 0.35 + 0.35 * math.sin(t * freq1 + i * 1.2) + 0.25 * math.cos(t * freq2 + i * 0.9)
-                bar_h = max(5.0, h_factor * (height - 4.0))
+                bar_h = max(6.0, h_factor * (height - 4.0))
             elif self.mode == "TRANSCRIBING":
                 wave = math.sin(t * 8.0 - i * 0.9)
-                bar_h = 5.0 + 7.0 * (0.5 + 0.5 * wave)
+                bar_h = 6.0 + 8.0 * (0.5 + 0.5 * wave)
             else:
-                bar_h = 4.0
+                bar_h = 5.0
 
             r, g, b = self.bar_colors[i % len(self.bar_colors)]
             cr.set_source_rgba(r, g, b, 0.95)
@@ -152,13 +151,11 @@ class WhisperOverlay:
         self.window.set_title("Whisper Dictation")
         self.window.set_app_paintable(True)
 
-        # Set RGBA Visual for true Wayland alpha transparency
         screen = Gdk.Screen.get_default()
         visual = screen.get_rgba_visual()
         if visual:
             self.window.set_visual(visual)
 
-        # Init LayerShell with custom namespace for Hyprland blur
         GtkLayerShell.init_for_window(self.window)
         GtkLayerShell.set_namespace(self.window, "whisper-overlay")
         GtkLayerShell.set_layer(self.window, GtkLayerShell.Layer.OVERLAY)
@@ -166,10 +163,8 @@ class WhisperOverlay:
         GtkLayerShell.set_anchor(self.window, GtkLayerShell.Edge.BOTTOM, True)
         GtkLayerShell.set_margin(self.window, GtkLayerShell.Edge.BOTTOM, 50)
 
-        # Connect draw signal to ensure window surface is cleared transparently
         self.window.connect("draw", self.on_window_draw)
 
-        # Apply CSS
         css_provider = Gtk.CssProvider()
         css_provider.load_from_data(CSS)
         Gtk.StyleContext.add_provider_for_screen(
@@ -178,13 +173,14 @@ class WhisperOverlay:
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
 
-        # Layout Container
-        self.box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        self.box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
         self.box.set_name("pill")
 
         self.visualizer = VoiceVisualizer(self.theme)
+        self.visualizer.set_valign(Gtk.Align.CENTER)
 
-        text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.text_box.set_valign(Gtk.Align.CENTER)
         
         self.title_label = Gtk.Label()
         self.title_label.set_name("title")
@@ -196,11 +192,11 @@ class WhisperOverlay:
         self.sub_label.set_xalign(0.0)
         self.sub_label.set_text("Speak now • Press Super+H to finish")
 
-        text_box.pack_start(self.title_label, False, False, 0)
-        text_box.pack_start(self.sub_label, False, False, 0)
+        self.text_box.pack_start(self.title_label, False, False, 0)
+        self.text_box.pack_start(self.sub_label, False, False, 0)
 
         self.box.pack_start(self.visualizer, False, False, 0)
-        self.box.pack_start(text_box, True, True, 0)
+        self.box.pack_start(self.text_box, True, True, 0)
 
         self.window.add(self.box)
         self.window.connect("destroy", Gtk.main_quit)
@@ -208,7 +204,6 @@ class WhisperOverlay:
         self.anim_timer = GLib.timeout_add(25, self.refresh_animation)
 
     def on_window_draw(self, widget, cr):
-        # Clear window surface to fully transparent
         cr.set_source_rgba(0, 0, 0, 0)
         cr.set_operator(cairo.OPERATOR_SOURCE)
         cr.paint()
@@ -222,17 +217,23 @@ class WhisperOverlay:
         self.visualizer.mode = "RECORDING"
         self.title_label.set_text("Listening...")
         self.sub_label.set_text("Speak now • Press Super+H to finish")
+        self.sub_label.set_visible(True)
 
     def set_transcribing(self):
         self.visualizer.mode = "TRANSCRIBING"
         self.title_label.set_text("Transcribing...")
-        self.sub_label.set_text("Processing on RTX 4050 CUDA...")
+        # Remove the subtitle line during transcription
+        self.sub_label.set_visible(False)
 
     def set_done(self, text=""):
         self.visualizer.mode = "DONE"
         self.title_label.set_text("Dictated")
         display_text = text if len(text) <= 55 else text[:52] + "..."
-        self.sub_label.set_text(f'"{display_text}"' if display_text else "Done")
+        if display_text:
+            self.sub_label.set_text(f'"{display_text}"')
+            self.sub_label.set_visible(True)
+        else:
+            self.sub_label.set_visible(False)
         GLib.timeout_add(1300, self.close_overlay)
 
     def close_overlay(self):
