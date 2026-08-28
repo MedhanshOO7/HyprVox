@@ -73,7 +73,7 @@ if [ -f "$PID_FILE" ]; then
                 send_overlay_msg "DONE:$SAFE_TEXT"
             else
                 send_overlay_msg "QUIT"
-                notify-send -t 1500 -a "Voice Dictation" -i "dialog-warning" "⚠️ No speech detected" "Audio was silent or unclear."
+                notify-send -t 1500 -a "Voice Dictation" -i "dialog-warning" "No speech detected" "Audio was silent or unclear."
             fi
         else
             send_overlay_msg "QUIT"

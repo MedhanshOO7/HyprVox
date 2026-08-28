@@ -170,7 +170,7 @@ class WhisperOverlay:
 
     def set_done(self, text=""):
         self.visualizer.mode = "DONE"
-        self.title_label.set_text("✅ Dictated")
+        self.title_label.set_text("Dictated")
         display_text = text if len(text) <= 55 else text[:52] + "..."
         self.sub_label.set_text(f'"{display_text}"' if display_text else "Done")
         GLib.timeout_add(1300, self.close_overlay)
