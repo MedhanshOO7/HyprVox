@@ -19,7 +19,11 @@ CONFIG_PATH = os.path.expanduser("~/.config/hyprvox/config.toml")
 
 def load_user_config():
     defaults = {
-        "audio": {"reactive_audio": True},
+        "audio": {
+            "reactive_audio": True,
+            "noise_gate": 0.22,
+            "mic_sensitivity": 2.8,
+        },
         "ui": {
             "font_family": "Google Sans Flex",
             "font_size": 16,
@@ -143,8 +147,11 @@ class VoiceVisualizer(Gtk.DrawingArea):
         height = widget.get_allocated_height()
         t = time.time() - self.start_time
 
-        # Smooth volume level
-        self.smoothed_rms = 0.75 * self.smoothed_rms + 0.25 * self.rms_level
+        # Fast attack, smooth decay
+        if self.rms_level > self.smoothed_rms:
+            self.smoothed_rms = 0.50 * self.smoothed_rms + 0.50 * self.rms_level
+        else:
+            self.smoothed_rms = 0.85 * self.smoothed_rms + 0.15 * self.rms_level
 
         bar_width = 3.5
         spacing = 4.0
@@ -156,10 +163,11 @@ class VoiceVisualizer(Gtk.DrawingArea):
             x = start_x + i * (bar_width + spacing)
 
             if self.mode == "RECORDING":
-                # Real-time microphone reactive height combined with organic oscillation
-                base_motion = 0.20 + 0.15 * math.sin(t * 4.0 + i * 1.3)
-                voice_boost = self.smoothed_rms * (1.2 + 0.3 * math.cos(t * 6.0 + i))
-                h_factor = min(1.0, base_motion + voice_boost)
+                # Subtle resting wave when silent
+                base_motion = 0.14 + 0.06 * math.sin(t * 3.0 + i * 1.2)
+                # Dynamic voice expansion above threshold
+                voice_boost = self.smoothed_rms * (0.80 + 0.20 * math.sin(t * 6.0 + i * 1.4))
+                h_factor = min(1.0, max(0.12, base_motion + voice_boost))
                 bar_h = max(5.0, h_factor * (height - 4.0))
             elif self.mode == "TRANSCRIBING":
                 wave = math.sin(t * 8.0 - i * 0.9)
@@ -200,7 +208,6 @@ class WhisperOverlay:
         GtkLayerShell.set_layer(self.window, GtkLayerShell.Layer.OVERLAY)
         GtkLayerShell.set_keyboard_mode(self.window, GtkLayerShell.KeyboardMode.NONE)
 
-        # Configurable position
         pos = self.cfg["ui"].get("position", "bottom").lower()
         margin = self.cfg["ui"].get("margin", 50)
         if pos == "top":
@@ -251,6 +258,10 @@ class WhisperOverlay:
         self.anim_timer = GLib.timeout_add(25, self.refresh_animation)
         self.mic_thread_running = False
 
+        self.base_noise_gate = float(self.cfg["audio"].get("noise_gate", 0.22))
+        self.sensitivity = float(self.cfg["audio"].get("mic_sensitivity", 2.8))
+        self.adaptive_floor = self.base_noise_gate
+
         if self.cfg["audio"].get("reactive_audio", True):
             self.start_mic_listener()
 
@@ -268,8 +279,16 @@ class WhisperOverlay:
                 if not self.mic_thread_running:
                     return
                 rms = float(np.sqrt(np.mean(indata**2)))
-                # Normalized level between 0.0 and 1.0
-                norm_level = min(1.0, rms * 14.0)
+                
+                # Adaptive noise floor tracking: quickly adapts downwards, slowly creeps up
+                if rms < self.adaptive_floor:
+                    self.adaptive_floor = 0.85 * self.adaptive_floor + 0.15 * rms
+                else:
+                    self.adaptive_floor = 0.998 * self.adaptive_floor + 0.002 * rms
+
+                effective_floor = max(self.base_noise_gate, self.adaptive_floor * 1.15)
+                diff = max(0.0, rms - effective_floor)
+                norm_level = min(1.0, diff * self.sensitivity)
                 GLib.idle_add(self.visualizer.set_volume_level, norm_level)
 
             with sd.InputStream(callback=audio_cb, channels=1, samplerate=16000, blocksize=512):
