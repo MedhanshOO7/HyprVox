@@ -303,6 +303,29 @@ class WhisperOverlay:
 
     def on_open_dict_editor(self, widget):
         self.stop_mic_listener()
+
+        # Cancel active recording process and remove audio to prevent any transcription
+        pid_file = "/tmp/whisper_dictate.pid"
+        audio_file = "/tmp/whisper_dictate.wav"
+        if os.path.exists(pid_file):
+            try:
+                with open(pid_file, "r") as f:
+                    rec_pid = int(f.read().strip())
+                os.kill(rec_pid, 9)
+            except Exception:
+                pass
+            try:
+                os.remove(pid_file)
+            except OSError:
+                pass
+
+        if os.path.exists(audio_file):
+            try:
+                os.remove(audio_file)
+            except OSError:
+                pass
+
+        # Launch Dictionary Editor GUI
         dict_script = Path(__file__).resolve().parent / "dict_editor.py"
         venv_python = Path(__file__).resolve().parent / "venv" / "bin" / "python"
         py_bin = str(venv_python) if venv_python.exists() else "python3"
