@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import os
+import json
 import math
 import time
 import threading
@@ -13,49 +14,96 @@ from gi.repository import Gtk, Gdk, GLib, GtkLayerShell
 import cairo
 
 SOCKET_PATH = "/tmp/whisper_overlay.sock"
+COLORS_JSON_PATH = os.path.expanduser("~/.local/state/quickshell/user/generated/colors.json")
 
-CSS = b"""
-window {
+def hex_to_rgb(hex_str):
+    hex_str = hex_str.lstrip('#')
+    if len(hex_str) == 6:
+        return tuple(int(hex_str[i:i+2], 16) / 255.0 for i in (0, 2, 4))
+    return (0.7, 0.7, 0.8)
+
+def hex_to_rgba_css(hex_str, alpha=1.0):
+    hex_str = hex_str.lstrip('#')
+    if len(hex_str) == 6:
+        r, g, b = (int(hex_str[i:i+2], 16) for i in (0, 2, 4))
+        return f"rgba({r}, {g}, {b}, {alpha})"
+    return f"rgba(20, 22, 30, {alpha})"
+
+def load_quickshell_theme():
+    # Defaults matching standard dark Material You
+    theme = {
+        "bg": "#121318",
+        "surface": "#1e1f25",
+        "primary": "#aec6ff",
+        "secondary": "#bfc6dc",
+        "tertiary": "#dfbbde",
+        "on_surface": "#e2e2e9",
+        "on_surface_variant": "#c5c6d0",
+        "outline_variant": "#44474f",
+    }
+    if os.path.exists(COLORS_JSON_PATH):
+        try:
+            with open(COLORS_JSON_PATH, "r") as f:
+                data = json.load(f)
+                theme["bg"] = data.get("background", theme["bg"])
+                theme["surface"] = data.get("surface_container", theme["surface"])
+                theme["primary"] = data.get("primary", theme["primary"])
+                theme["secondary"] = data.get("secondary", theme["secondary"])
+                theme["tertiary"] = data.get("tertiary", theme["tertiary"])
+                theme["on_surface"] = data.get("on_surface", theme["on_surface"])
+                theme["on_surface_variant"] = data.get("on_surface_variant", theme["on_surface_variant"])
+                theme["outline_variant"] = data.get("outline_variant", theme["outline_variant"])
+        except Exception:
+            pass
+    return theme
+
+theme = load_quickshell_theme()
+
+# Generate dynamic CSS matching Quickshell top bar transparency & colors
+CSS = f"""
+window {{
     background: transparent;
-}
+}}
 
-#pill {
-    background-color: rgba(16, 18, 26, 0.94);
-    border: 1.5px solid rgba(255, 255, 255, 0.16);
-    border-radius: 32px;
-    padding: 12px 28px;
-    box-shadow: 0 10px 36px rgba(0, 0, 0, 0.6);
-}
+#pill {{
+    background-color: {hex_to_rgba_css(theme["bg"], 0.78)};
+    border: 1px solid {hex_to_rgba_css(theme["outline_variant"], 0.45)};
+    border-radius: 28px;
+    padding: 12px 26px;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+}}
 
-#title {
+#title {{
     font-family: 'Google Sans Flex', 'Inter', 'Segoe UI', sans-serif;
     font-size: 14px;
     font-weight: 600;
-    color: #e3e2e9;
-}
+    color: {theme["on_surface"]};
+}}
 
-#subtitle {
+#subtitle {{
     font-family: 'Google Sans Flex', 'Inter', 'Segoe UI', sans-serif;
     font-size: 12px;
-    color: #9398aa;
+    color: {theme["on_surface_variant"]};
     margin-top: 2px;
-}
-"""
+}}
+""".encode('utf-8')
 
 class VoiceVisualizer(Gtk.DrawingArea):
-    def __init__(self):
+    def __init__(self, theme_data):
         super().__init__()
         self.set_size_request(38, 28)
         self.connect("draw", self.on_draw)
         self.num_bars = 5
-        self.mode = "RECORDING"  # RECORDING, TRANSCRIBING, DONE
+        self.mode = "RECORDING"
         self.start_time = time.time()
+        
+        # Derive waveform bar colors from Quickshell Material You palette
         self.bar_colors = [
-            (0.38, 0.69, 0.98),  # Cyan-blue
-            (0.53, 0.44, 0.96),  # Purple
-            (0.95, 0.40, 0.55),  # Coral-pink
-            (0.98, 0.68, 0.35),  # Amber
-            (0.30, 0.85, 0.60),  # Emerald green
+            hex_to_rgb(theme_data["primary"]),
+            hex_to_rgb(theme_data["tertiary"]),
+            hex_to_rgb(theme_data["secondary"]),
+            hex_to_rgb(theme_data["primary"]),
+            hex_to_rgb(theme_data["tertiary"]),
         ]
 
     def on_draw(self, widget, cr):
@@ -73,22 +121,21 @@ class VoiceVisualizer(Gtk.DrawingArea):
             x = start_x + i * (bar_width + spacing)
 
             if self.mode == "RECORDING":
-                # Multi-harmonic organic voice bounce
+                # Organic voice frequency simulation
                 freq1 = 4.5 + (i * 0.8)
                 freq2 = 2.2 - (i * 0.3)
                 h_factor = 0.35 + 0.35 * math.sin(t * freq1 + i * 1.2) + 0.25 * math.cos(t * freq2 + i * 0.9)
                 bar_h = max(6.0, h_factor * (height - 6.0))
             elif self.mode == "TRANSCRIBING":
-                # Smooth traveling sine wave shimmer
+                # Traveling wave pulse
                 wave = math.sin(t * 8.0 - i * 0.9)
                 bar_h = 6.0 + 8.0 * (0.5 + 0.5 * wave)
-            else:  # DONE
+            else:
                 bar_h = 5.0
 
             r, g, b = self.bar_colors[i % len(self.bar_colors)]
             cr.set_source_rgba(r, g, b, 0.95)
 
-            # Draw smooth rounded pill bar
             radius = bar_width / 2.0
             y1 = center_y - (bar_h / 2.0)
             y2 = center_y + (bar_h / 2.0)
@@ -102,7 +149,8 @@ class VoiceVisualizer(Gtk.DrawingArea):
         return False
 
 class WhisperOverlay:
-    def __init__(self):
+    def __init__(self, theme_data):
+        self.theme = theme_data
         self.window = Gtk.Window()
         self.window.set_title("Whisper Dictation")
         self.window.set_app_paintable(True)
@@ -127,8 +175,7 @@ class WhisperOverlay:
         self.box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
         self.box.set_name("pill")
 
-        # Animated Voice Waveform Bars
-        self.visualizer = VoiceVisualizer()
+        self.visualizer = VoiceVisualizer(self.theme)
 
         text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
         
@@ -151,7 +198,6 @@ class WhisperOverlay:
         self.window.add(self.box)
         self.window.connect("destroy", Gtk.main_quit)
 
-        # 40 FPS animation refresh
         self.anim_timer = GLib.timeout_add(25, self.refresh_animation)
 
     def refresh_animation(self):
@@ -208,7 +254,8 @@ def socket_listener(overlay):
             break
 
 def main():
-    overlay = WhisperOverlay()
+    current_theme = load_quickshell_theme()
+    overlay = WhisperOverlay(current_theme)
     if len(sys.argv) > 1 and sys.argv[1] == "--transcribing":
         overlay.set_transcribing()
     else:
