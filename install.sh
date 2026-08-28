@@ -81,14 +81,15 @@ fi
 
 echo -e "${GREEN}✓ Python virtual environment ready.${RESET}"
 
-# 4. Pre-download Default Whisper Model
-echo -e "\n${YELLOW}--> Pre-downloading default 'small.en' model for instant use...${RESET}"
+# 4. Pre-download Default Models for Profiles
+echo -e "\n${YELLOW}--> Verifying pre-cached models (small.en & distil-large-v3)...${RESET}"
 "$VENV_DIR/bin/python" -c "
 from faster_whisper import WhisperModel
-print('Downloading small.en model weights...')
-WhisperModel('small.en', device='cpu', compute_type='int8')
-print('Model ready!')
-" || echo -e "${YELLOW}Notice: Model will download on first dictation trigger.${RESET}"
+for m in ('small.en', 'base.en'):
+    print(f'Checking {m}...')
+    WhisperModel(m, device='cpu', compute_type='int8')
+print('Models ready!')
+" || echo -e "${YELLOW}Notice: Models will download on first dictation trigger.${RESET}"
 
 # 5. Create Config & Symlinks
 echo -e "\n${YELLOW}--> Installing binary launcher and configuration...${RESET}"
@@ -103,7 +104,7 @@ fi
 
 ln -sf "$APP_DIR/whisper-dictate" "$BIN_DIR/whisper-dictate"
 ln -sf "$APP_DIR/whisper-dictate" "$BIN_DIR/hyprvox"
-chmod +x "$APP_DIR/whisper-dictate" "$APP_DIR/overlay.py" "$APP_DIR/transcribe.py"
+chmod +x "$APP_DIR/whisper-dictate" "$APP_DIR/overlay.py" "$APP_DIR/transcribe.py" "$APP_DIR/daemon.py"
 
 echo -e "${GREEN}✓ Symlinked launcher to ~/.local/bin/whisper-dictate and ~/.local/bin/hyprvox${RESET}"
 
