@@ -55,11 +55,11 @@ window {{
 }}
 
 #dialog_box {{
-    background-color: {hex_to_rgba_css(theme["bg"], 0.88)};
-    border: 1px solid {hex_to_rgba_css(theme["outline_variant"], 0.50)};
+    background-color: {hex_to_rgba_css(theme["bg"], 0.70)};
+    border: 1px solid {hex_to_rgba_css(theme["outline_variant"], 0.45)};
     border-radius: 24px;
     padding: 24px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.40);
 }}
 
 #header_title {{
