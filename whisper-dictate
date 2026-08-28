@@ -25,11 +25,11 @@ fi
 send_overlay_msg() {
     local msg="$1"
     if [ -S "$SOCKET_PATH" ]; then
-        python3 -c "
+        "$PYTHON_BIN" -c "
 import socket
 try:
     s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
-    s.sendto(b'$msg', '$SOCKET_PATH')
+    s.sendto(b'''$msg''', '$SOCKET_PATH')
 except Exception:
     pass
 " 2>/dev/null || true
@@ -99,9 +99,9 @@ if [ -f "$OVERLAY_PID_FILE" ]; then
     rm -f "$OVERLAY_PID_FILE"
 fi
 
-# Launch floating overlay with venv python
+# Launch floating overlay
 if [ -f "$APP_DIR/overlay.py" ]; then
-    "$PYTHON_BIN" "$APP_DIR/overlay.py" >/dev/null 2>&1 &
+    "$PYTHON_BIN" "$APP_DIR/overlay.py" > /tmp/hyprvox_overlay.log 2>&1 &
     echo $! > "$OVERLAY_PID_FILE"
 fi
 
