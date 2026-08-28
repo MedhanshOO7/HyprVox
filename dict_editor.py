@@ -9,6 +9,9 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GLib
 import cairo
 
+GLib.set_prgname("hyprvox-dictionary")
+GLib.set_application_name("HyprVox Dictionary")
+
 CONFIG_PATH = os.path.expanduser("~/.config/hyprvox/config.toml")
 COLORS_JSON_PATH = os.path.expanduser("~/.local/state/quickshell/user/generated/colors.json")
 
@@ -150,8 +153,6 @@ window {{
 class DictionaryEditor(Gtk.Window):
     def __init__(self):
         super().__init__(title="HyprVox Dictionary")
-        self.set_wmclass("hyprvox-dictionary", "hyprvox-dictionary")
-        self.set_role("hyprvox-dictionary")
         self.set_default_size(560, 420)
         self.set_position(Gtk.WindowPosition.CENTER)
         self.set_app_paintable(True)
@@ -177,7 +178,6 @@ class DictionaryEditor(Gtk.Window):
         main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
         main_box.set_name("dialog_box")
 
-        # Header
         header_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         title_label = Gtk.Label(label="HyprVox Vocabulary & Technical Glossary")
         title_label.set_name("header_title")
@@ -191,7 +191,6 @@ class DictionaryEditor(Gtk.Window):
         header_box.pack_start(sub_label, False, False, 0)
         main_box.pack_start(header_box, False, False, 0)
 
-        # Tags Cloud in Scrolled Window
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scrolled.set_min_content_height(180)
@@ -208,7 +207,6 @@ class DictionaryEditor(Gtk.Window):
 
         self.populate_tags()
 
-        # Add Word Input Row
         input_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         
         self.entry = Gtk.Entry()
@@ -224,7 +222,6 @@ class DictionaryEditor(Gtk.Window):
         input_row.pack_start(add_btn, False, False, 0)
         main_box.pack_start(input_row, False, False, 0)
 
-        # Footer Row (Open in Editor & Close)
         footer_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         
         edit_file_btn = Gtk.Button(label="Open Config File")
